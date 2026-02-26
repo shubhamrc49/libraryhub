@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: libuser
+      POSTGRES_PASSWORD: libpass
+      POSTGRES_DB: libraryhub
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "libuser", "-d", "libraryhub"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DB_URL: postgresql+asyncpg://libuser:libpass@db:5432/libraryhub
+      SECRET_KEY: changeme-in-production
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_PATH: /uploads
+      LLM_PROVIDER: mock
+      RECOMMENDATION_ENGINE: hybrid
+    volumes:
+      - uploads:/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+
+  # Optional: Ollama local LLM
+  # ollama:
+  #   image: ollama/ollama
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+
+volumes:
+  pg_data:
+  uploads:
+  # ollama_data:
